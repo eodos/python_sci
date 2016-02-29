@@ -1,13 +1,18 @@
 with open("eeprom_data.bin", "rb") as f:
     data = f.read()
 
+instruction1 = [0x11, 0xC1, 0x01, 0xE3]
+instruction2 = [0x22, 0xC2, 0x02, 0xE3]
+
 instruction1_count = 0
 instruction2_count = 0
 
-for i in range(1, len(data)):
-    if (ord(data[i]) == 0x11) and (ord(data[i+1]) == 0xC1) and (ord(data[i+2]) == 0x01) and (ord(data[i+3]) == 0xE3):
+for i in range(0, len(data)):
+    if (ord(data[i]) == instruction1[0]) and (ord(data[i+1]) == instruction1[1]) \
+            and (ord(data[i+2]) == instruction1[2]) and (ord(data[i+3]) == instruction1[3]):
         instruction1_count += 1
-    if (ord(data[i]) == 0x22) and (ord(data[i+1]) == 0xC2) and (ord(data[i+2]) == 0x02) and (ord(data[i+3]) == 0xE3):
+    if (ord(data[i]) == instruction2[0]) and (ord(data[i+1]) == instruction2[1]) \
+            and (ord(data[i+2]) == instruction2[2]) and (ord(data[i+3]) == instruction2[3]):
         instruction2_count += 1
 
 if instruction1_count == 1 and instruction2_count == 1:
