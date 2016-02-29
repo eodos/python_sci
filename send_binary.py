@@ -30,7 +30,7 @@ try:
     print "Received:", response
 
     # Tell if the last packet is complete or not
-    print "Sensing remaining length:", len(str(remaining))
+    print "Sending remaining length:", len(str(remaining))
     ser.write(str(len(str(remaining))))
     response = ser.read(1)
     print "Received:", response
