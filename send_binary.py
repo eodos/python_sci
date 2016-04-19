@@ -1,66 +1,100 @@
+import crc16
 import serial
-import sys
 
-with open("eeprom_data.bin", "rb") as f:
-    data = f.read()
-
-print " ".join("{:02x}".format(ord(c)) for c in data)
-
-len1 = (len(data))
-len2 = (len(str(len1)))
-print "Number of chars:", len1
-print "Length of the number of chars:", len2
-
+# User definitions
+DEBUG = 1
+file = "eeprom_data.bin"
 packet_length = 16
+serial_port = "COM4"
+serial_baudrate = 115200
+ACK = b'\x06'
+NACK = b'\x15'
 
-# Check if the last packet is complete
-remaining = len1 % packet_length
 
-try:
-    ser = serial.Serial(port='COM4', baudrate=115200)
+def debug_print(msg):
+    if DEBUG:
+        print(msg)
 
-    # First we send the data length
-    print "Sending length of the data length:", len2
-    ser.write(str(len2))
-    response = ser.read(1)
-    print "Received:", response
-    print "Sending data length:", len1
-    ser.write(str(len1))
-    response = ser.read(1)
-    print "Received:", response
 
-    # Tell if the last packet is complete or not
-    print "Sending remaining length:", len(str(remaining))
-    ser.write(str(len(str(remaining))))
-    response = ser.read(1)
-    print "Received:", response
-    print "Sending remaining:", remaining
-    ser.write(str(remaining))
-    response = ser.read(1)
-    print "Received:", response
+def print_hex(packet):
+    return " ".join("{:02x}".format(c) for c in packet)
 
-    # Now we send the data
-    sys.stdout.write("Sending data")
 
-    for i in range(0, len1/packet_length):
-        sys.stdout.write('.')
-        for c in data[packet_length*i:packet_length*i+packet_length]:
-            ser.write(c)
-        response = ser.read(1)
-        if response == '1':
-            continue
-        else:
+def add_crc(packet):
+    crc = crc16.crc16xmodem(packet)
+    crc = crc.to_bytes(2, byteorder="big")
+    packet += crc
+    return packet
+
+
+def send_packet(buffer, packet):
+    while True:
+        debug_print("Sending: " + print_hex(packet))
+        buffer.write(packet)
+        response = buffer.read(1)
+        debug_print("Received: " + print_hex(response))
+        if response == ACK:
             break
 
+
+def main():
+    # Global variables
+    global file
+    global packet_length
+
+    # Open binary file and extract the data
+    with open(file, "rb") as f:
+        data = f.read()
+
+    # Length of the data
+    data_length = (len(data))
+    debug_print("Data length: " + str(data_length))
+
+    # Check if the last packet is complete
+    number_of_packets = data_length//packet_length
+    remaining = data_length % packet_length
+
+    # Zero pad last packet
     if remaining != 0:
-        sys.stdout.write('.')
-        for c in data[packet_length*(i+1):packet_length*(i+1)+remaining]:
-            ser.write(c)
-        response = ser.read(1)
+        number_of_packets += 1
+        while packet_length - remaining != 0:
+            remaining += 1
+            data += '\0'.encode()
 
-    ser.close()
+    # Print the data
+    debug_print(print_hex(data))
+    debug_print("Number of packets: " + str(number_of_packets))
 
-    print "Task completed"
+    # Add 2 bytes to packet_length_with_crc corresponding to the CRC
+    packet_length_with_crc = packet_length + 2
 
-except serial.serialutil.SerialException:
-    print "\nERROR: Serial port not connected"
+    # Establish serial communication
+    try:
+        ser = serial.Serial(port=serial_port, baudrate=serial_baudrate)
+
+        # First we send the packet length
+        debug_print("Sending packet length")
+        send_packet(ser, packet_length_with_crc.to_bytes(4, byteorder="big"))
+
+        # Then we send the number of packets
+        debug_print("Sending number of packets")
+        send_packet(ser, number_of_packets.to_bytes(4, byteorder="big"))
+
+        for i in range(0, number_of_packets):
+            # Extract packet from data
+            packet = data[packet_length*i:packet_length*i+packet_length]
+
+            # Calculate CRC16 and add it to the packet
+            packet = add_crc(packet)
+
+            # Send packet
+            debug_print("Sending packet " + str(i))
+            send_packet(ser, packet)
+
+        debug_print("Task completed")
+
+    except serial.serialutil.SerialException:
+        debug_print("ERROR: Serial port not connected")
+
+if __name__ == "__main__":
+    main()
