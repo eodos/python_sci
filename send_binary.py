@@ -4,7 +4,7 @@ import serial
 # User definitions
 DEBUG = 1
 file = "eeprom_data.bin"
-packet_length = 16
+packet_length = 100
 serial_port = "COM4"
 serial_baudrate = 115200
 ACK = b'\x06'
