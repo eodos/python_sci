@@ -1,14 +1,20 @@
 import crc16
 import serial
+import sys
 
 # User definitions
 DEBUG = 1
 file = "eeprom_data.bin"
 packet_length = 100
-serial_port = "COM4"
 serial_baudrate = 115200
 ACK = b'\x06'
 NACK = b'\x15'
+
+# Detect OS and select the appropriate serial port
+if sys.platform == 'linux':
+    serial_port = "/dev/ttyUSB0"
+else:
+    serial_port = "COM4"
 
 
 def debug_print(msg):
